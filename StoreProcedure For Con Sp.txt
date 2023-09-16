@@ -1,0 +1,378 @@
+
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	:23/08/2023
+[AGG].[[USP_CONCRETE_SPECIMENS_EDIT]] 9
+
+ */
+
+ALTER PROC [AGG].[USP_CONCRETE_SPECIMENS_EDIT]
+@Test_ID           NUMERIC(18,0) OUTPUT
+
+
+AS BEGIN
+
+SELECT A.Test_ID,D.Test_Dtl_ID,A.Test_No,A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,
+D.Client,D.Id_Mark,D.Dimension_L,D.Dimension_B,D.Dimension_H,
+D.Cast_Date,D.Test_Age,D.Weight,D.Grade_ID,B.Grade_Name,D.Crushing_Load,D.Compressive_strength,D.Avg_Compressive,D.Remarks,emp1.Employee_Name AS Tested_By ,emp2.Employee_Name AS Qc_Incharge,emp3.Employee_Name AS Added_By
+
+
+
+FROM [AGG].[Tbl_Concrete_Specimens_HDR] AS A WITH(NOLOCK) 
+
+INNER JOIN [HRM].[dbo].[vw_Employee_Mst] AS emp1 WITH(NOLOCK) on emp1.Employee_Code = A.Tested_By
+INNER JOIN [HRM].[dbo].[vw_Employee_Mst] AS emp2 WITH(NOLOCK) on emp2.Employee_Code = A.Qc_Incharge
+INNER JOIN [HRM].[dbo].[vw_Employee_Mst] AS emp3 WITH(NOLOCK) on emp3.Employee_Code = A.Added_By
+INNER JOIN [AGG].[Tbl_Concrete_Specimens_Dtl] AS D ON D.Test_ID =A.Test_ID
+INNER JOIN AGG.Tbl_Grade_Mst AS B WITH (NOLOCK) ON D.GRADE_ID = B.GRADE_ID 
+
+  WHERE  A.STATUS = 'Y' AND D.Test_ID =@Test_ID
+
+END 
+
+
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	:26/08/2023
+[AGG].[USP_CONCRETE_SPECIMENS_VIEW] 1
+
+ */
+ 
+ALTER PROC [AGG].[USP_CONCRETE_SPECIMENS_VIEW]
+@Test_ID           NUMERIC(18,0) OUTPUT
+
+
+AS BEGIN
+
+SELECT D.Test_Dtl_ID,A.Test_No, A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,A.FILE_PATH,D.Client,D.Id_Mark ,
+D.Dimension_L,D.Dimension_B,D.Dimension_H,D.Cast_Date,D.Test_Age,D.Grade_ID,D.Weight,D.Crushing_Load,D.Compressive_strength,
+D.Avg_Compressive,D.Remarks,A.Tested_By,A.Qc_Incharge,A.Added_By,A.FILE_PATH
+--,ISNULL(A.IS_FILE_UPLOAD,0) AS IS_FILE_UPLOAD
+,ROW_NUMBER() OVER(PARTITION BY A.Test_No ORDER BY D.Test_Dtl_ID ASC) AS RNK
+ FROM [AGG].[Tbl_Concrete_Specimens_HDR] AS A WITH(NOLOCK) 
+
+INNER JOIN  [AGG].[Tbl_Concrete_Specimens_Dtl] as D  WITH(NOLOCK) ON D.Test_ID =A.Test_ID
+
+
+WHERE  D.Test_ID =@Test_ID
+
+END 
+
+
+
+/*
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	: 18/08/2023
+ [AGG].[USP_INSERT_CONCRETE_SPECIMENS_Dtl] 
+*/
+
+ALTER PROC [AGG].[USP_INSERT_CONCRETE_SPECIMENS_Dtl]
+@ERRORSTR					VARCHAR(200) OUTPUT,
+@Test_Dtl_ID			    NUMERIC(18, 0) OUTPUT, 
+@Test_ID				    NUMERIC(18, 0),
+@Client				        VARCHAR(50),
+@Id_Mark					NUMERIC(18,2),
+@Dimension_L                NUMERIC(18,2),
+@Dimension_B                NUMERIC(18,2),
+@Dimension_H                NUMERIC(18,2),
+@Cast_Date					DATETIME,
+@Test_Age			        NUMERIC(18,2),
+@Grade_ID                   NUMERIC(18,2),
+@Weight                     NUMERIC(18,2),
+@Crushing_Load              NUMERIC(18,2),
+@Compressive_strength       NUMERIC(18,2),
+@Avg_Compressive            NUMERIC(18,2),
+@Remarks                    VARCHAR(200)
+AS BEGIN
+
+SET NOCOUNT ON;
+SET @ERRORSTR='' 
+
+INSERT INTO [AGG].[Tbl_Concrete_Specimens_Dtl]
+           ([Test_ID]
+           ,[Client]
+           ,[Id_Mark]
+		   ,[Dimension_L]
+		   ,[Dimension_B]
+		   ,[Dimension_H]
+           ,[Cast_Date]
+           ,[Test_Age]
+		   ,[Grade_ID]
+		   ,[Weight]
+		   ,[Crushing_Load]
+		   ,[Compressive_strength]
+		   ,[Avg_Compressive]
+		   ,[Remarks]
+
+	
+           )
+     VALUES
+           (
+		 @Test_ID	,		
+		 @Client	,			 
+		 @Id_Mark	,		
+		 @Dimension_L  ,  
+	     @Dimension_B  ,   
+		 @Dimension_H  ,          
+		 @Cast_Date	,		
+		 @Test_Age		,	 
+		 @Grade_ID   ,   
+		 @Weight          ,    
+		 @Crushing_Load    ,   
+		 @Compressive_strength,
+		 @Avg_Compressive     ,
+		 @Remarks 
+		   )
+
+
+ SET @Test_Dtl_ID = (SELECT SCOPE_IDENTITY())         
+
+		IF @@ERROR <> 0
+		BEGIN
+			SET @ERRORSTR = 'DATA BASE ERROR OCCUR FOR TABLE CONCRETE SPECIMENS DTL !'
+			SET @Test_Dtl_ID = -1		
+			RETURN
+END
+	END
+
+
+
+
+
+
+/*
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	: 18/08/2023
+ [AGG].[USP_INSERT_CONCRETE_SPECIMENS_HDR] 
+*/
+
+ALTER PROC [AGG].[USP_INSERT_CONCRETE_SPECIMENS_HDR]
+@ERRORSTR					VARCHAR(200) OUTPUT,
+@Test_ID					NUMERIC(18, 0) OUTPUT,
+@Test_No				    VARCHAR(20) OUTPUT,
+@Dry_Bulb				    VARCHAR(20), 
+@Wet_Bulb				    VARCHAR(20),  
+@Date_Test                  datetime,
+@Tested_By                  CHAR(7),
+@Qc_Incharge                CHAR(7),
+@IS_FILE_UPLOAD             BIT, 
+@FILE_PATH					VARCHAR(200),
+@Added_By                    CHAR(7)
+
+AS
+BEGIN
+	SET NOCOUNT ON;
+	SET @ERRORSTR='' 
+	DECLARE @IDTEMP INT      
+SELECT @IDTEMP = MAX(CAST(left(RIGHT(Test_No,7),7) AS INT) ) FROM [AGG].[Tbl_Concrete_Specimens_HDR]
+SELECT @IDTEMP=CASE WHEN @IDTEMP IS NULL THEN 1  ELSE @IDTEMP + 1  END      
+
+SELECT @Test_No = 'CON'+ Replicate('0',7 - len(@IDTEMP)) + cast(@IDTEMP as varchar) 
+	INSERT INTO [AGG].[Tbl_Concrete_Specimens_HDR]
+	      (
+		        [Test_No]
+			  , [Dry_Bulb]
+			   ,[Wet_Bulb]		
+			   ,[Date_Test]
+			   ,[Tested_By] 
+	           ,[Qc_Incharge]
+		       ,[IS_FILE_UPLOAD]
+		       ,[FILE_PATH]
+		       ,[Added_By]
+		       ,[ADDED_ON]
+	
+		
+			   )
+		 VALUES
+			   (   
+			    @Test_No,
+				@Dry_Bulb,
+				@Wet_Bulb ,
+				@Date_Test,
+			    @Tested_By  ,               
+       	        @Qc_Incharge ,
+			    @IS_FILE_UPLOAD,
+		        REPLACE(@Test_No + '' + @FILE_PATH,'/','_'), 
+	            @Added_By,
+		        GETDATE() 
+				)
+
+	SET @Test_ID = (SELECT SCOPE_IDENTITY())         
+
+		IF @@ERROR <> 0
+		BEGIN
+			SET @ERRORSTR = 'DATA BASE ERROR OCCUR FOR TABLE CONCRETE SPECIMENS !'
+			SET @Test_ID = -1		
+			RETURN
+		END
+ 
+END
+
+
+
+
+
+
+/*
+
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	: 22/08/2023
+[AGG].[USP_SELECT_CONCRETE_SPECIMENS] 
+[AGG].[USP_SELECT_CONCRETE_SPECIMENS] 0,'2023-06-01','2023-09-30','A'
+ */
+
+ALTER PROC [AGG].[USP_SELECT_CONCRETE_SPECIMENS]
+@GRADE_ID					int  = NULL, 
+@FROM_DT					DATETIME,
+@TO_DT						DATETIME 
+
+
+AS BEGIN
+  
+
+	SELECT   A.Test_ID,B.Test_Dtl_ID, A.Test_No, A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,B.GRADE_ID,U.Grade_Name,A.STATUS,
+	COUNT(Test_Dtl_ID) AS SAMPLE_COUNT,'A' as FLAG 
+
+	FROM [AGG].[Tbl_Concrete_Specimens_HDR] AS A WITH(NOLOCK)
+
+	INNER JOIN [AGG].[Tbl_Concrete_Specimens_Dtl] AS B ON A.Test_ID = B.Test_Dtl_ID
+    INNER JOIN AGG.Tbl_Grade_Mst AS U WITH (NOLOCK) ON B.GRADE_ID = U.GRADE_ID 
+	WHERE(B.GRADE_ID = @GRADE_ID OR ISNULL(@GRADE_ID,0) = 0)   
+	 AND A.Date_Test  BETWEEN  @FROM_DT  AND @TO_DT AND  A.STATUS ='Y'
+	 	GROUP BY A.Test_ID, B.Test_Dtl_ID,A.Test_No, A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,B.GRADE_ID,U.Grade_Name,A.STATUS
+ END
+
+
+
+
+/*
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	: 18/08/2023
+ [AGG].[USP_UPDATE_CONCRETE_SPECIMENS_DTL]
+*/
+
+ALTER PROC [AGG].[USP_UPDATE_CONCRETE_SPECIMENS_DTL]
+@ERRORSTR VARCHAR(200) OUTPUT,
+@Test_Dtl_ID NUMERIC(18, 0),
+@Test_ID NUMERIC(18, 0),
+@Client VARCHAR(50),
+@Id_Mark NUMERIC(18, 0),
+@Dimension_L NUMERIC(18, 0),
+@Dimension_B NUMERIC(18, 0),
+@Dimension_H NUMERIC(18, 0),
+@Cast_Date DATETIME,
+@Test_Age NUMERIC(18, 0),
+@Grade_ID NUMERIC(18, 0),
+@Weight NUMERIC(18, 0),
+@Crushing_Load NUMERIC(18, 0),
+@Compressive_strength NUMERIC(18, 0),
+@Avg_Compressive NUMERIC(18, 0),
+@Remarks VARCHAR(200)
+
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET @ERRORSTR = ''
+	
+     
+       --DECLARE @Test_Dtl_ID numeric(18) 
+	   SELECT @Test_Dtl_ID = Test_Dtl_ID FROM  [AGG].[Tbl_Concrete_Specimens_Dtl] WHERE Test_ID =  @Test_ID
+
+        
+        UPDATE [AGG].[Tbl_Concrete_Specimens_Dtl]
+        SET Client = @Client,
+            Id_Mark = @Id_Mark,
+            Dimension_L = @Dimension_L,
+            Dimension_B = @Dimension_B,
+            Dimension_H = @Dimension_H,
+            Cast_Date = @Cast_Date,
+            Test_Age = @Test_Age,
+            Grade_ID = @Grade_ID,
+            Weight = @Weight,
+            Crushing_Load = @Crushing_Load,
+            Compressive_strength = @Compressive_strength,
+            Avg_Compressive = @Avg_Compressive,
+            Remarks = @Remarks
+        WHERE Test_Dtl_ID = @Test_Dtl_ID
+
+    IF @@ERROR <> 0
+    BEGIN
+        SET @ERRORSTR = 'DATABASE ERROR OCCURRED FOR TABLE CONCRETE SPECIMENS!'
+		SET	@Test_Dtl_ID = -1
+        RETURN -1
+    END
+	END
+
+
+
+
+
+
+
+/*
+CREATE BY		: ROHIT CHAURASIYA
+CREATED DATE	: 26/08/2023
+ [AGG].[USP_UPDATE_CONCRETE_SPECIMENS_HDR] 
+*/
+
+ALTER PROC [AGG].[USP_UPDATE_CONCRETE_SPECIMENS_HDR]
+@ERRORSTR					VARCHAR(200) OUTPUT,
+@Test_ID					NUMERIC(18, 0), 
+@Test_No				    VARCHAR(20),
+@Dry_Bulb				    VARCHAR(20), 
+@Wet_Bulb				    VARCHAR(20),  
+@Date_Test                  datetime,
+--@Tested_By                  CHAR(7),
+--@Qc_Incharge                CHAR(7),
+--@IS_FILE_UPLOAD             BIT, 
+--@FILE_PATH					VARCHAR(200),
+@Added_By                    CHAR(7)
+
+AS
+BEGIN
+	SET NOCOUNT ON;
+	SET @ERRORSTR='' 
+ 
+	UPDATE AGG.Tbl_Concrete_Specimens_HDR
+			SET		Dry_Bulb = @Dry_Bulb,
+			Wet_Bulb = @Wet_Bulb,
+			Date_Test = @Date_Test 
+			--IS_FILE_UPLOAD = @IS_FILE_UPLOAD, 
+			--FILE_PATH = REPLACE(@Test_No + '' + @FILE_PATH,'/','_')
+			--Tested_By = @Tested_By, 
+			--Qc_Incharge = @Qc_Incharge 
+
+     where  Test_ID = @Test_ID
+
+		IF @@ERROR <> 0
+		BEGIN
+			SET @ERRORSTR = 'DATA BASE ERROR OCCUR FOR TABLE CONCRETE SPECIMENS !'
+			SET @Test_ID = -1		
+			RETURN
+		END
+ 
+END
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
